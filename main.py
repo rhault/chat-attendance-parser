@@ -1,6 +1,7 @@
 
 import os
 import re
+import xlsxwriter
 from datetime import datetime
 import pandas as pd
 from collections import defaultdict
@@ -29,43 +30,59 @@ def read_text_file(file_path):
                     'date': full_datetime.date(),
                     'time': full_datetime.time(),
                     'sender': sender.strip(),
-                    'message': message.strip()
+                    'text': message.strip()
                 })
         return messages
 
 
-def group_messages_sender(messages):
+def group_messages_data(messages):
     """
-    Groups parsed messages by sender name.
+    Groups parsed messages by sender name and date.
     """
-    grouped = defaultdict(list)
+    grouped_messages = defaultdict(lambda: defaultdict(list))
 
     for message in messages:
         sender = message['sender']
+        date = str(message['date'])
         del message['sender']  # Remove sender from message dict
-        grouped[sender].append(message)
+        del message['date']  # Remove date from message dict
+        grouped_messages[sender][date].append(message)
 
-    return grouped
+    return grouped_messages
 
 
-def group_messages_date(messages):
+def save_to_excel(grouped_data, output_file):
     """
-    Groups parsed messages by date.
+    Saves the grouped data to an Excel file.
     """
 
-    grouped = defaultdict(list)
-    senders = list(messages.keys())
+    workbook = xlsxwriter.Workbook(output_file)
 
-    for sender in senders:
-        grouped[sender] = defaultdict(list)  # type: ignore
-        for message in messages[sender]:
-            date = message['date']
-            del message['date']  # Remove date from message dict
-            grouped[sender][date].append(message)
+    for sender, dates in grouped_data.items():
+        worksheet = workbook.add_worksheet(name=sender[:31])
 
-    return grouped
+        worksheet.write(0, 0, 'Data')
+        worksheet.write(0, 1, 'Entrada')
+        worksheet.write(0, 2, 'Saída')
+        worksheet.write(0, 3, 'Entrada')
+        worksheet.write(0, 4, 'Saida')
+
+        row = 1
+
+        for date, messages in dates.items():
+            worksheet.write(row, 0, date)
+            col = 1
+            for input in messages:
+                time = input['time']
+
+                worksheet.write(row, col, time.strftime("%H:%M"))
+                col += 1
+
+            row += 1
+
+    workbook.close()
 
 
-text = read_text_file('./input/chat.txt')
-group_message = group_messages_sender(text)
-group_date = group_messages_date(group_message)
+read_text = read_text_file('./input/chat.txt')
+group_message = group_messages_data(read_text)
+save_to_excel(group_message, './output/chat_attendance.xlsx')
