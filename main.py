@@ -11,7 +11,7 @@ MESSAGE_HOUR_PATTERN = re.compile(r"\b(\d{2}:\d{2})\b")
 
 def extract_hour(text):
     match = MESSAGE_HOUR_PATTERN.search(text)
-    return match.group(1) if match else ""
+    return datetime.strptime(match.group(1), "%H:%M").time() if match else ""
 
 
 def read_text_file(file_path):
@@ -61,7 +61,10 @@ def save_to_excel(grouped_data, output_file):
     Saves the grouped data to an Excel file.
     """
 
+    variance = datetime.strptime("5", "%M").time()
     workbook = xlsxwriter.Workbook(output_file)
+    text_styles = workbook.add_format({'bold': True, 'font_color': "red"})
+    today = datetime.today()
 
     for sender, dates in grouped_data.items():
         worksheet = workbook.add_worksheet(name=sender[:31])
@@ -82,12 +85,22 @@ def save_to_excel(grouped_data, output_file):
             worksheet.write(row, 0, date)
             col = 1
             for input in messages:
-                time = input["time"]
-                text = input["text"]
+                time = input['time']
+                text = input['text']
 
-                worksheet.write(row, col, time.strftime("%H:%M"))
-                worksheet.write(row, col + 1, text)
-                col += 2
+                if (time == text):
+                    set_time = input['time']
+                elif (time > text):
+                    delta = (datetime.combine(date, time) -
+                             datetime.combine(date, text)).total_seconds() / 60
+                    set_time = input['text'] if delta >= 5 else input['time']
+                else:
+                    time = input['time']
+                    worksheet.write(row, col, time)
+
+                worksheet.write(row, col, input['text'], text_styles)
+
+                col += 1
 
             row += 1
 
@@ -96,4 +109,12 @@ def save_to_excel(grouped_data, output_file):
 
 read_text = read_text_file("./input/Controle de Jornada.txt")
 group_message = group_messages_data(read_text)
-save_to_excel(group_message, "./output/chat_attendance.xlsx")
+
+print(extract_hour("12:30 - Mensagem de teste"))
+"""def filter():
+    for sender, dates in group_message.items():
+        for date, messages in dates.items():
+            if
+"""
+print(group_message)
+# save_to_excel(group_message, "./output/chat_attendance.xlsx")
